@@ -1,70 +1,58 @@
-# n8n-nodes-e2b 開発依頼書
+# n8n-nodes-e2b
 
-## 概要
+Unofficial n8n community node for [E2B Code Interpreter](https://e2b.dev). Run Python and JavaScript code in secure cloud sandboxes directly from your n8n workflows.
 
-E2B Code Interpreter をラップした n8n コミュニティノードを作成する。
-サンドボックスのライフサイクルを個別操作として分離し、ワークフロー内で自由に組み合わせられる設計とする。
+This node wraps the [`@e2b/code-interpreter`](https://www.npmjs.com/package/@e2b/code-interpreter) SDK and exposes sandbox lifecycle operations as individual n8n actions, allowing you to freely compose them within your workflows.
 
-## 技術要件
+## Installation
 
-### スキャフォールド
+1. Open your n8n instance
+2. Go to **Settings** > **Community Nodes**
+3. Click **Install a community node**
+4. Enter `n8n-nodes-e2b`
+5. Click **Install**
 
-- n8n-nodes-starter テンプレート（https://github.com/n8n-io/n8n-nodes-starter）を使用
-- パッケージ名: `n8n-nodes-e2b`
-- 依存: `@e2b/code-interpreter`
+## Prerequisites
 
-### Credential: `E2bApi.credentials.ts`
+You need an E2B API key. Sign up at [e2b.dev](https://e2b.dev) and get your API key from the dashboard.
 
-- 表示名: "E2B API"
-- フィールド: `apiKey`（type: string, password: true）
-- テスト用リクエスト: E2B API で疎通確認できるエンドポイントがあれば使う、なければ省略可
+### Credential Setup
 
----
-
-### Node: `E2b.node.ts`
-
-- 表示名: "E2B"
-- Resource: "Sandbox"
-- 以下の Operation を持つ単一ノード
-
----
+1. In n8n, go to **Credentials** > **Add Credential**
+2. Search for **E2B API**
+3. Enter your API key
+4. Click **Save**
 
 ## Operations
 
-### 1. Create Sandbox
+The node provides a single **Sandbox** resource with 7 operations:
 
-サンドボックスを作成し、以降の操作に必要な sandboxId を返す。
+### Create Sandbox
 
-**入力パラメータ:**
+Create a new sandbox and return its ID for subsequent operations.
 
-| Name     | Type   | Required | Default | Description                 |
-| -------- | ------ | -------- | ------- | --------------------------- |
-| template | string | -        | 空       | カスタムテンプレートID                |
-| timeout  | number | -        | 300     | タイムアウト秒（最大86400。Pro未満は3600） |
-| envVars  | json   | -        | {}      | サンドボックスに渡す環境変数              |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| Template | string | _(empty)_ | Custom sandbox template ID |
+| Timeout (Seconds) | number | 300 | Auto-kill timeout (max 86400; requires Pro plan for >3600) |
+| Environment Variables | key-value | _(empty)_ | Environment variables passed to the sandbox |
 
-**出力:**
-
+**Output:**
 ```json
-{
-  "sandboxId": "sandbox-xxxx"
-}
+{ "sandboxId": "sandbox-xxxx" }
 ```
 
-### 2. Execute Code
+### Execute Code
 
-サンドボックス内でコードを実行する。
+Execute Python or JavaScript code inside a sandbox.
 
-**入力パラメータ:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| Sandbox ID | string | _(required)_ | Target sandbox ID |
+| Code | string | _(required)_ | Code to execute (multiline) |
+| Language | options | python | `python` or `javascript` |
 
-| Name      | Type            | Required | Default | Description             |
-| --------- | --------------- | -------- | ------- | ----------------------- |
-| sandboxId | string          | ○        | -       | 対象サンドボックスID             |
-| code      | string (多行エディタ) | ○        | -       | 実行するコード                 |
-| language  | options         | -        | python  | `python` / `javascript` |
-
-**出力:**
-
+**Output:**
 ```json
 {
   "sandboxId": "sandbox-xxxx",
@@ -75,23 +63,20 @@ E2B Code Interpreter をラップした n8n コミュニティノードを作成
 }
 ```
 
-- `results`: runCode の戻り値（チャート・画像等の構造化データ）
-- `error`: 実行時エラーがあれば格納
+- `results` contains structured data from code execution (charts, images, etc.)
+- `error` contains the error message if execution failed
 
-### 3. Run Command
+### Run Command
 
-サンドボックス内でシェルコマンドを実行する。
+Run a shell command inside a sandbox.
 
-**入力パラメータ:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| Sandbox ID | string | _(required)_ | Target sandbox ID |
+| Command | string | _(required)_ | Shell command to run |
+| Working Directory | string | `/` | Working directory for the command |
 
-| Name       | Type   | Required | Default | Description |
-| ---------- | ------ | -------- | ------- | ----------- |
-| sandboxId  | string | ○        | -       | 対象サンドボックスID |
-| command    | string | ○        | -       | 実行するコマンド    |
-| workingDir | string | -        | /       | 作業ディレクトリ    |
-
-**出力:**
-
+**Output:**
 ```json
 {
   "sandboxId": "sandbox-xxxx",
@@ -101,22 +86,18 @@ E2B Code Interpreter をラップした n8n コミュニティノードを作成
 }
 ```
 
-### 4. Upload File
+### Upload File
 
-サンドボックスにファイルをアップロードする。
+Upload a file to a sandbox. Supports both text content and binary data from previous n8n nodes.
 
-**入力パラメータ:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| Sandbox ID | string | _(required)_ | Target sandbox ID |
+| Remote Path | string | _(required)_ | Destination path inside the sandbox |
+| Content | string | _(empty)_ | File content as text (ignored when binary input is used) |
+| Binary Property | string | `data` | Name of the input binary property. Binary data takes priority over Content. |
 
-| Name       | Type   | Required | Default | Description    |
-| ---------- | ------ | -------- | ------- | -------------- |
-| sandboxId  | string | ○        | -       | 対象サンドボックスID    |
-| remotePath | string | ○        | -       | サンドボックス内の保存先パス |
-| content    | string | ○        | -       | ファイル内容（テキスト）   |
-
-※ バイナリファイル対応: n8n のバイナリ入力があればそちらを優先する（オプション `binaryProperty` フィールドで指定）
-
-**出力:**
-
+**Output:**
 ```json
 {
   "sandboxId": "sandbox-xxxx",
@@ -125,20 +106,17 @@ E2B Code Interpreter をラップした n8n コミュニティノードを作成
 }
 ```
 
-### 5. Download File
+### Download File
 
-サンドボックスからファイルをダウンロードする。
+Download a file from a sandbox as text or binary data.
 
-**入力パラメータ:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| Sandbox ID | string | _(required)_ | Target sandbox ID |
+| Remote Path | string | _(required)_ | File path inside the sandbox |
+| Binary Output | boolean | false | Output as n8n binary data instead of text |
 
-| Name         | Type    | Required | Default | Description                  |
-| ------------ | ------- | -------- | ------- | ---------------------------- |
-| sandboxId    | string  | ○        | -       | 対象サンドボックスID                  |
-| remotePath   | string  | ○        | -       | サンドボックス内のファイルパス              |
-| binaryOutput | boolean | -        | false   | true ならバイナリ出力、false ならテキスト出力 |
-
-**出力（テキスト時）:**
-
+**Output (text):**
 ```json
 {
   "sandboxId": "sandbox-xxxx",
@@ -147,23 +125,18 @@ E2B Code Interpreter をラップした n8n コミュニティノードを作成
 }
 ```
 
-**出力（バイナリ時）:**
+**Output (binary):** Returns n8n binary data that can be used by downstream nodes (e.g., Write Binary File).
 
-- n8n のバイナリデータとして出力（後続ノードでファイル保存等が可能）
+### List Files
 
-### 6. List Files
+List files and directories in a sandbox.
 
-サンドボックス内のファイル一覧を取得する。
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| Sandbox ID | string | _(required)_ | Target sandbox ID |
+| Path | string | `/` | Directory path to list |
 
-**入力パラメータ:**
-
-| Name      | Type   | Required | Default | Description |
-| --------- | ------ | -------- | ------- | ----------- |
-| sandboxId | string | ○        | -       | 対象サンドボックスID |
-| path      | string | -        | /       | 対象ディレクトリ    |
-
-**出力:**
-
+**Output:**
 ```json
 {
   "sandboxId": "sandbox-xxxx",
@@ -175,18 +148,15 @@ E2B Code Interpreter をラップした n8n コミュニティノードを作成
 }
 ```
 
-### 7. Kill Sandbox
+### Kill Sandbox
 
-サンドボックスを破棄する。
+Terminate a sandbox and release its resources.
 
-**入力パラメータ:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| Sandbox ID | string | _(required)_ | Target sandbox ID |
 
-| Name      | Type   | Required | Default | Description |
-| --------- | ------ | -------- | ------- | ----------- |
-| sandboxId | string | ○        | -       | 対象サンドボックスID |
-
-**出力:**
-
+**Output:**
 ```json
 {
   "sandboxId": "sandbox-xxxx",
@@ -194,113 +164,37 @@ E2B Code Interpreter をラップした n8n コミュニティノードを作成
 }
 ```
 
----
+## Workflow Examples
 
-## バリデーション（各 Operation 共通）
-
-- sandboxId が必要な Operation で空ならエラー
-- Execute Code: `code` が空ならエラー、`language` が python/javascript 以外ならエラー
-- Run Command: `command` が空ならエラー
-- Upload File: `remotePath` と `content`（またはバイナリ入力）が空ならエラー
-- Download File: `remotePath` が空ならエラー
-- Create Sandbox: `timeout` が 0以下 or 86400超 ならエラー
-
-## execute メソッドの疑似コード
+### Simple Code Execution
 
 ```
-credential = getCredential('e2bApi')
-operation = getParam('operation')
-
-for each item:
-  switch operation:
-    case 'createSandbox':
-      sandbox = Sandbox.create({ template?, timeout, apiKey, envVars })
-      output = { sandboxId: sandbox.sandboxId }
-
-    case 'executeCode':
-      sandbox = Sandbox.connect(sandboxId, { apiKey })
-      execution = sandbox.runCode(code, { language })
-      output = { sandboxId, stdout, stderr, results, error }
-
-    case 'runCommand':
-      sandbox = Sandbox.connect(sandboxId, { apiKey })
-      result = sandbox.commands.run(command, { cwd: workingDir })
-      output = { sandboxId, stdout, stderr, exitCode }
-
-    case 'uploadFile':
-      sandbox = Sandbox.connect(sandboxId, { apiKey })
-      sandbox.files.write(remotePath, content)
-      output = { sandboxId, remotePath, success: true }
-
-    case 'downloadFile':
-      sandbox = Sandbox.connect(sandboxId, { apiKey })
-      content = sandbox.files.read(remotePath)
-      output = { sandboxId, remotePath, content } or binary
-
-    case 'listFiles':
-      sandbox = Sandbox.connect(sandboxId, { apiKey })
-      files = sandbox.files.list(path)
-      output = { sandboxId, path, files }
-
-    case 'killSandbox':
-      sandbox = Sandbox.connect(sandboxId, { apiKey })
-      sandbox.kill()
-      output = { sandboxId, killed: true }
-
-  push output
-return outputs
+Create Sandbox -> Execute Code -> Kill Sandbox
 ```
 
-※ Create 以外の Operation では `Sandbox.connect()` で既存サンドボックスに接続する。
-※ 各 Operation のエラーは n8n 標準の continueOnFail に従い処理する。
-
----
-
-## 想定ワークフロー例
-
-### パターン1: 単発実行（サブワークフロー化向き）
+### Data Analysis Pipeline
 
 ```
-Create → Execute Code → Kill
+Create Sandbox -> Upload File -> Execute Code -> Execute Code -> Download File -> Kill Sandbox
 ```
 
-### パターン2: データ分析パイプライン
+### Environment Setup + Multiple Tasks
 
 ```
-Create → Upload File → Execute Code → Execute Code → Download File → Kill
+Create Sandbox -> Run Command (pip install) -> Execute Code -> Execute Code -> List Files -> Download File -> Kill Sandbox
 ```
 
-### パターン3: 環境構築 + 複数タスク
+## Compatibility
 
-```
-Create → Run Command (pip install) → Execute Code → Execute Code → List Files → Download File → Kill
-```
+- **n8n version:** 1.0+
+- **Node.js version:** 18+
 
----
+## Resources
 
-## 注意事項
+- [E2B Documentation](https://e2b.dev/docs)
+- [E2B Code Interpreter SDK](https://www.npmjs.com/package/@e2b/code-interpreter)
+- [n8n Community Nodes Documentation](https://docs.n8n.io/integrations/community-nodes/)
 
-### n8n 2.x の制約
+## License
 
-- n8n 2.x 以降、Code ノードは task runner 内で隔離実行されるため、外部 npm モジュールを Code ノードで直接使うことはできない。
-- そのためコミュニティノードとしてパッケージ化する必要がある（本依頼の背景）。
-
-### E2B API アーキテクチャ
-
-- E2B はサンドボックスのライフサイクル管理に REST API、データ操作（ファイル・コマンド実行）に gRPC を使うハイブリッド構成。
-- HTTP Request ノードだけではコード実行ができないため、SDK（`@e2b/code-interpreter`）の使用が必須。
-
----
-
-## 公開
-
-- npm に公開（public）
-- n8n GUI の「コミュニティノード」からインストールできる状態にする
-
-## 参考
-
-- E2B ドキュメント: https://e2b.dev/docs
-- E2B Code Interpreter SDK: https://www.npmjs.com/package/@e2b/code-interpreter
-- E2B SDK Reference (Sandbox.connect): https://e2b.dev/docs/sdk-reference/js-sdk/v1.2.0/sandbox
-- n8n コミュニティノード開発: https://docs.n8n.io/integrations/community-nodes/build-community-nodes/
-- n8n-nodes-starter: https://github.com/n8n-io/n8n-nodes-starter
+[MIT](LICENSE)
