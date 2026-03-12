@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-e2b",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "n8n community node for E2B Code Interpreter - Run code in cloud sandboxes",
 	"keywords": [
 		"n8n-community-node-package"
