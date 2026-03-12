@@ -1,0 +1,45 @@
+{
+	"name": "n8n-nodes-e2b",
+	"version": "0.1.0",
+	"description": "n8n community node for E2B Code Interpreter - Run code in cloud sandboxes",
+	"keywords": [
+		"n8n-community-node-package"
+	],
+	"license": "MIT",
+	"homepage": "",
+	"author": "",
+	"repository": {
+		"type": "git",
+		"url": ""
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "n8n-node build",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"prepublishOnly": "n8n-node prerelease"
+	},
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"strict": true,
+		"credentials": [
+			"dist/credentials/E2bApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/E2b/E2b.node.js"
+		]
+	},
+	"dependencies": {
+		"@e2b/code-interpreter": "^1.0.0"
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "^0.23.0",
+		"typescript": "^5.0.0"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
+}

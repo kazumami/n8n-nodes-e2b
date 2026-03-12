@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:e2b.dev)",
+      "WebFetch(domain:api.github.com)",
+      "WebSearch",
+      "Bash(npm install)",
+      "Bash(npm view @n8n/node-cli versions --json)",
+      "Bash(npm run build)"
+    ]
+  }
+}

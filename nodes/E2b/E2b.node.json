@@ -1,0 +1,13 @@
+{
+	"node": "n8n-nodes-e2b.e2b",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Development", "Developer Tools"],
+	"resources": {
+		"primaryDocumentation": [
+			{
+				"url": "https://e2b.dev/docs"
+			}
+		]
+	}
+}
