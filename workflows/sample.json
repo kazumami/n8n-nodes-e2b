@@ -1,0 +1,93 @@
+{
+  "name": "E2B - Minimal Test",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "sandbox",
+        "operation": "createSandbox",
+        "timeout": 300
+      },
+      "id": "create",
+      "name": "Create Sandbox",
+      "type": "n8n-nodes-e2b.e2b",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "e2bApi": {
+          "id": "",
+          "name": "E2B API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "sandbox",
+        "operation": "executeCode",
+        "sandboxId": "={{ $json.sandboxId }}",
+        "code": "import sys\nprint(f'Hello from E2B! Python {sys.version}')",
+        "language": "python"
+      },
+      "id": "execute",
+      "name": "Execute Code",
+      "type": "n8n-nodes-e2b.e2b",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "credentials": {
+        "e2bApi": {
+          "id": "",
+          "name": "E2B API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "sandbox",
+        "operation": "killSandbox",
+        "sandboxId": "={{ $json.sandboxId }}"
+      },
+      "id": "kill",
+      "name": "Kill Sandbox",
+      "type": "n8n-nodes-e2b.e2b",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "credentials": {
+        "e2bApi": {
+          "id": "",
+          "name": "E2B API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [{ "node": "Create Sandbox", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Sandbox": {
+      "main": [
+        [{ "node": "Execute Code", "type": "main", "index": 0 }]
+      ]
+    },
+    "Execute Code": {
+      "main": [
+        [{ "node": "Kill Sandbox", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0
+}
