@@ -476,14 +476,52 @@ export class E2b implements INodeType {
 						}
 
 						const sbCmd = await Sandbox.connect(sandboxId, { apiKey });
-						const cmdResult = await sbCmd.commands.run(command, { cwd: workingDir });
+
+						let stdout = '';
+						let stderr = '';
+						let exitCode = 0;
+						let errorMessage: string | undefined;
+
+						try {
+							const cmdResult = await sbCmd.commands.run(command, { cwd: workingDir });
+							stdout = cmdResult.stdout;
+							stderr = cmdResult.stderr;
+							exitCode = cmdResult.exitCode;
+						} catch (err) {
+							// E2B CommandExitError 等、non-zero exit でも stdout/stderr を回収
+							const e = err as {
+								stdout?: string;
+								stderr?: string;
+								exitCode?: number;
+								message?: string;
+							};
+							stdout = e.stdout ?? '';
+							stderr = e.stderr ?? '';
+							exitCode = e.exitCode ?? -1;
+							errorMessage = e.message;
+
+							if (!this.continueOnFail()) {
+								const op = new NodeOperationError(
+									this.getNode(),
+									`Command exited with ${exitCode}: ${errorMessage ?? 'unknown error'}`,
+									{
+										itemIndex: i,
+										description:
+											`stdout:\n${stdout || '(empty)'}\n\n` +
+											`stderr:\n${stderr || '(empty)'}`,
+									},
+								);
+								throw op;
+							}
+						}
 
 						returnData.push({
 							json: {
 								sandboxId,
-								stdout: cmdResult.stdout,
-								stderr: cmdResult.stderr,
-								exitCode: cmdResult.exitCode,
+								stdout,
+								stderr,
+								exitCode,
+								...(errorMessage ? { error: errorMessage } : {}),
 							},
 						});
 						break;
