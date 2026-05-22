@@ -255,6 +255,18 @@ export class E2b implements INodeType {
 				},
 				description: 'The working directory for the command',
 			},
+			{
+				displayName: 'Command Timeout (Seconds)',
+				name: 'commandTimeout',
+				type: 'number',
+				default: 0,
+				displayOptions: {
+					show: {
+						operation: ['runCommand'],
+					},
+				},
+				description: 'Per-command runtime cap in seconds. 0 = no timeout (otherwise the E2B SDK default of 60s applies — short-circuiting long-running scripts).',
+			},
 
 			// ------ Upload File Parameters ------
 			{
@@ -463,6 +475,7 @@ export class E2b implements INodeType {
 						const sandboxId = this.getNodeParameter('sandboxId', i) as string;
 						const command = this.getNodeParameter('command', i) as string;
 						const workingDir = this.getNodeParameter('workingDir', i, '/') as string;
+						const commandTimeout = this.getNodeParameter('commandTimeout', i, 0) as number;
 
 						if (!sandboxId) {
 							throw new NodeOperationError(this.getNode(), 'Sandbox ID is required', {
@@ -482,8 +495,16 @@ export class E2b implements INodeType {
 						let exitCode = 0;
 						let errorMessage: string | undefined;
 
+						const runOpts: { cwd: string; timeoutMs?: number } = { cwd: workingDir };
+						if (commandTimeout > 0) {
+							runOpts.timeoutMs = commandTimeout * 1000;
+						} else {
+							// 0 = explicitly unlimited (SDK default is 60s otherwise)
+							runOpts.timeoutMs = 0;
+						}
+
 						try {
-							const cmdResult = await sbCmd.commands.run(command, { cwd: workingDir });
+							const cmdResult = await sbCmd.commands.run(command, runOpts);
 							stdout = cmdResult.stdout;
 							stderr = cmdResult.stderr;
 							exitCode = cmdResult.exitCode;
