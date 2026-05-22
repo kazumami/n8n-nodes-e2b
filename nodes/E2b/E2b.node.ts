@@ -228,6 +228,18 @@ export class E2b implements INodeType {
 				],
 				description: 'The programming language of the code',
 			},
+			{
+				displayName: 'Code Timeout (Seconds)',
+				name: 'codeTimeout',
+				type: 'number',
+				default: 0,
+				displayOptions: {
+					show: {
+						operation: ['executeCode'],
+					},
+				},
+				description: 'Per-execution runtime cap in seconds. 0 = no timeout (otherwise the E2B SDK default of 60s applies — short-circuiting long-running code).',
+			},
 
 			// ------ Run Command Parameters ------
 			{
@@ -420,6 +432,7 @@ export class E2b implements INodeType {
 						const sandboxId = this.getNodeParameter('sandboxId', i) as string;
 						const code = this.getNodeParameter('code', i) as string;
 						const language = this.getNodeParameter('language', i, 'python') as string;
+						const codeTimeout = this.getNodeParameter('codeTimeout', i, 0) as number;
 
 						if (!sandboxId) {
 							throw new NodeOperationError(this.getNode(), 'Sandbox ID is required', {
@@ -439,33 +452,81 @@ export class E2b implements INodeType {
 							);
 						}
 
-						const sbExec = await Sandbox.connect(sandboxId, { apiKey });
-						const execution = await sbExec.runCode(code, { language });
+						const runOpts: { language: string; timeoutMs?: number } = { language };
+						if (codeTimeout > 0) {
+							runOpts.timeoutMs = codeTimeout * 1000;
+						} else {
+							// 0 = explicitly unlimited (SDK default is 60s otherwise)
+							runOpts.timeoutMs = 0;
+						}
 
-						const results = execution.results.map((r) => {
-							const result: Record<string, unknown> = {};
-							if (r.text !== undefined) result.text = r.text;
-							if (r.html !== undefined) result.html = r.html;
-							if (r.png !== undefined) result.png = r.png;
-							if (r.jpeg !== undefined) result.jpeg = r.jpeg;
-							if (r.svg !== undefined) result.svg = r.svg;
-							if (r.markdown !== undefined) result.markdown = r.markdown;
-							if (r.latex !== undefined) result.latex = r.latex;
-							if (r.json !== undefined) result.json = r.json;
-							if (r.pdf !== undefined) result.pdf = r.pdf;
-							result.isMainResult = r.isMainResult;
-							return result;
-						});
+						const sbExec = await Sandbox.connect(sandboxId, { apiKey });
+
+						let stdout = '';
+						let stderr = '';
+						let results: Record<string, unknown>[] = [];
+						let errorOut = '';
+						let errorMessage: string | undefined;
+
+						try {
+							const execution = await sbExec.runCode(code, runOpts);
+							stdout = execution.logs.stdout.join('');
+							stderr = execution.logs.stderr.join('');
+							results = execution.results.map((r) => {
+								const result: Record<string, unknown> = {};
+								if (r.text !== undefined) result.text = r.text;
+								if (r.html !== undefined) result.html = r.html;
+								if (r.png !== undefined) result.png = r.png;
+								if (r.jpeg !== undefined) result.jpeg = r.jpeg;
+								if (r.svg !== undefined) result.svg = r.svg;
+								if (r.markdown !== undefined) result.markdown = r.markdown;
+								if (r.latex !== undefined) result.latex = r.latex;
+								if (r.json !== undefined) result.json = r.json;
+								if (r.pdf !== undefined) result.pdf = r.pdf;
+								result.isMainResult = r.isMainResult;
+								return result;
+							});
+							errorOut = execution.error
+								? `${execution.error.name}: ${execution.error.value}`
+								: '';
+						} catch (err) {
+							// preserve any stdout/stderr that the SDK surfaces on the error object
+							const e = err as {
+								stdout?: string;
+								stderr?: string;
+								message?: string;
+							};
+							stdout = e.stdout ?? '';
+							stderr = e.stderr ?? '';
+							errorMessage = e.message;
+
+							if (!this.continueOnFail()) {
+								const op = new NodeOperationError(
+									this.getNode(),
+									`Code execution failed: ${errorMessage ?? 'unknown error'}`,
+									{
+										itemIndex: i,
+										description:
+											`stdout:
+${stdout || '(empty)'}
+
+` +
+											`stderr:
+${stderr || '(empty)'}`,
+									},
+								);
+								throw op;
+							}
+							errorOut = errorMessage ?? 'unknown error';
+						}
 
 						returnData.push({
 							json: {
 								sandboxId,
-								stdout: execution.logs.stdout.join(''),
-								stderr: execution.logs.stderr.join(''),
+								stdout,
+								stderr,
 								results,
-								error: execution.error
-									? `${execution.error.name}: ${execution.error.value}`
-									: '',
+								error: errorOut,
 							},
 						});
 						break;
